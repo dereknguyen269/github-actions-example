@@ -1,0 +1,58 @@
+# Copyright 2019 Google, LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build and Deploy to gcloud
+
+on:
+  push:
+    branches:
+    - production
+
+env:
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  RUN_REGION: ${{ secrets.PROJECT_REGION }} # australia-southeast1
+  SERVICE_NAME: ${{ secrets.SERVICE_NAME }} # default
+  service_account_email: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
+  service_account_key: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+
+jobs:
+  setup-build-deploy:
+    name: Setup, Build, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # Setup gcloud CLI
+    - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      with:
+        version: '285.0.0'
+        project_id: ${{ secrets.PROJECT_ID }}
+        service_account_email: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
+        service_account_key: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+        export_default_credentials: true
+    - run: gcloud info
+
+    # Deploy image to Cloud Run
+    - name: Deploy to gcloud
+      run: |-
+        gcloud app deploy app.yml --quiet 
+    
+    # Trigger Webhook after deploy successfully.
+    - name: Deploy hook
+      uses: dereknguyen269/webhook-action@master
+      env:
+        WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        WEBHOOK_DATA: ${{ secrets.WEBHOOK_DATA }}
